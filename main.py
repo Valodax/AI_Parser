@@ -1,7 +1,11 @@
-from llama_index import GPTSQLStructStoreIndex, SQLDatabase, SimpleDirectoryReader, GPTSimpleVectorIndex, download_loader
+from llama_index import GPTSQLStructStoreIndex, SQLDatabase, SimpleDirectoryReader, GPTSimpleVectorIndex
+from langchain.agents import Tool, initialize_agent
+from langchain.chains.conversation.memory import ConversationBufferMemory
+from langchain import OpenAI
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import os
+from flask import Flask, render_template, request
 
 load_dotenv()
 api_key = os.getenv('OPENAI_API_KEY')
@@ -45,11 +49,20 @@ def main():
             index = query_document()
         else:
             print('Invalid option, please try again.')
-
-    query_string = input('Enter your query: ')
-
-    response = index.query(query_string)
-    print(response)
+    tools = [
+        Tool(
+            name = "GPT Index",
+            func=lambda q: str(index.query(q)),
+            description="The input to this tool should be a complete english sentence.",
+            return_direct=True
+        ),
+    ]
+    memory = ConversationBufferMemory(memory_key="chat_history")
+    llm = OpenAI(temperature=0)
+    agent_chain = initialize_agent(tools, llm, agent="conversational-react-description", memory=memory)
+    while True:
+        result = agent_chain.run(input=input("Ask a question: "))
+        print(result)
 
 if __name__ == '__main__':
     main()
