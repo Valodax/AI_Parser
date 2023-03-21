@@ -1,4 +1,4 @@
-from llama_index import GPTSQLStructStoreIndex, SQLDatabase, SimpleDirectoryReader, GPTSimpleVectorIndex
+from llama_index import GPTSQLStructStoreIndex, SQLDatabase, SimpleDirectoryReader, GPTSimpleVectorIndex, download_loader
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import os
@@ -7,37 +7,42 @@ load_dotenv()
 api_key = os.getenv('OPENAI_API_KEY')
 
 def query_database():
-    engine = engine=create_engine(f'sqlite:///tokens.db')
+    db_name = input('Enter the database name and location: ')
+    if db_name.endswith('.db'):
+        db_name = db_name[:-3]
+    if not os.path.exists(f"databases/{db_name}.db"):
+        print(f"Error: {db_name}.db does not exist in databases.")
+        return None
+    print("Indexing all tables in the database...")
+    engine = engine=create_engine(f'sqlite:///databases/{db_name}.db')
 
-    sql_database = SQLDatabase(engine,include_tables=['all_tokens'])
-
+    sql_database = SQLDatabase(engine)
     index = GPTSQLStructStoreIndex(
         [],
         sql_database=sql_database, 
-        table_name="all_tokens",
     )
     return index
 
-def query_aave_db():
-    engine = engine=create_engine(f'sqlite:///aave_accounts.db')
+def query_csv():
+    csvs = SimpleDirectoryReader('csvs').load_data()
+    index = GPTSimpleVectorIndex(csvs)
+    return index
 
-    sql_database = SQLDatabase(engine,include_tables=['my_table'])
-
-    index = GPTSQLStructStoreIndex(
-        [],
-        sql_database=sql_database, 
-        table_name="my_table",
-    )
+def query_document():
+    documents = SimpleDirectoryReader('documents').load_data()
+    index = GPTSimpleVectorIndex(documents)
     return index
 
 def main():
     index = None
     while index is None:
-        option = input('Enter 1 for Tokens\nEnter 2 for AAVE: ')
+        option = input('What would you like to index?:\n1) Database\n2) CSV\n3) Document\n')
         if option == '1':
             index = query_database()
         elif option == '2':
-            index = query_aave_db()
+            index = query_csv()
+        elif option == '3':
+            index = query_document()
         else:
             print('Invalid option, please try again.')
 
